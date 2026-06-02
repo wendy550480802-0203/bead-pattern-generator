@@ -245,15 +245,13 @@ canvas { display: block; cursor: crosshair; }
     <div class="pay-instruction">
       <strong>📋 使用步骤：</strong><br>
       1️⃣ 扫码支付 <strong id="payStepPrice">1元</strong><br>
-      2️⃣ 添加微信 <strong>Wendy550480802</strong><br>
+      2️⃣ <strong>扫码添加微信</strong> 👇<br>
       3️⃣ 发送支付截图，获取解锁码<br>
       4️⃣ 输入解锁码，生成图纸
     </div>
     
-    <div style="margin:16px 0; font-size:13px;color:#8B6F5C;">收款二维码（微信/支付宝）</div>
-    <div class="pay-qr" id="payQR">
-      📱 请添加微信获取收款码<br>
-      <span style="font-size:12px;color:#C4956A;">Wendy550480802</span>
+    <div class="pay-qr" id="payQR" style="padding:0;overflow:hidden;">
+      <img src="wechat-qr.jpg" alt="微信二维码" style="width:100%;height:100%;object-fit:contain;display:block;">
     </div>
     
     <input type="text" class="unlock-input" id="unlockInput" placeholder="请输入解锁码（如：WARM-5A8B-3F2C）" maxlength="20">

@@ -93,12 +93,28 @@ canvas { display: block; cursor: crosshair; }
 .guide-banner { background: linear-gradient(135deg, #fdf8f3, #faf3eb); border: 1px solid #e0c8b0; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12px; color: #8B6F5C; line-height: 1.6; }
 .guide-banner strong { color: #C4956A; }
 
-/* 响应式 */
-@media (max-width: 1024px) {
-  .left-panel { width: 240px; }
-  .right-panel { width: 230px; }
-  .header-contact { display: none; }
-}
+  /* 响应式 */
+  @media (max-width: 1024px) {
+    .left-panel { width: 240px; }
+    .right-panel { width: 230px; }
+    .header-contact { display: none; }
+  }
+
+  /* 支付弹窗 */
+  .pay-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(139,111,92,0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(6px); }
+  .pay-modal.active { display: flex; }
+  .pay-content { background: white; border-radius: 20px; padding: 32px; max-width: 420px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); text-align: center; }
+  .pay-content h2 { font-size: 20px; color: #C4956A; margin-bottom: 8px; }
+  .pay-content .price { font-size: 36px; font-weight: bold; color: #C4956A; margin: 12px 0; }
+  .pay-content .price span { font-size: 18px; font-weight: normal; }
+  .pay-qr { margin: 20px auto; width: 200px; height: 200px; background: #f5f5f5; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #999; }
+  .pay-instruction { font-size: 13px; color: #8B6F5C; line-height: 1.8; margin: 16px 0; text-align: left; padding: 12px; background: #fdf8f3; border-radius: 8px; }
+  .pay-instruction strong { color: #C4956A; }
+  .unlock-input { width: 100%; padding: 12px; border: 2px solid #e0c8b0; border-radius: 10px; font-size: 16px; text-align: center; letter-spacing: 4px; margin-top: 12px; }
+  .unlock-input:focus { outline: none; border-color: #C4956A; }
+  .btn-unlock { background: linear-gradient(135deg, #C4956A, #E8A598); color: white; border: none; padding: 12px 32px; border-radius: 10px; font-size: 16px; cursor: pointer; margin-top: 12px; width: 100%; }
+  .btn-unlock:hover { filter: brightness(1.05); }
+  .pay-close { position: absolute; top: 16px; right: 16px; background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
 </style>
 </head>
 <body>
@@ -154,6 +170,9 @@ canvas { display: block; cursor: crosshair; }
         
         <label>
           <input type="checkbox" id="ditheringToggle" checked style="margin-right:6px"> 启用 Floyd-Steinberg 抖动
+        </label>
+        <label>
+          <input type="checkbox" id="removeBg" checked style="margin-right:6px"> 去除背景色（自动识别）
         </label>
       </div>
     </div>
@@ -212,6 +231,40 @@ canvas { display: block; cursor: crosshair; }
     <h3 style="font-size:16px;color:#8B6F5C;margin-bottom:12px">📂 暖屿图库</h3>
     <button class="btn btn-secondary" onclick="closeGallery()" style="width:auto;display:inline-block;margin-bottom:14px">✖ 关闭</button>
     <div id="galleryContent"></div>
+  </div>
+</div>
+
+<!-- 支付弹窗 -->
+<div class="pay-modal" id="payModal">
+  <div class="pay-content">
+    <button class="pay-close" onclick="closePayModal()">✖</button>
+    <h2>💳 支付解锁</h2>
+    <div class="price" id="payPriceTag">¥<span id="payPrice">1</span> <span>/ 次</span></div>
+    <div style="font-size:12px;color:#8B6F5C;margin:8px 0" id="payPriceDesc"></div>
+    
+    <div class="pay-instruction">
+      <strong>📋 使用步骤：</strong><br>
+      1️⃣ 扫码支付 <strong id="payStepPrice">1元</strong><br>
+      2️⃣ 添加微信 <strong>Wendy550480802</strong><br>
+      3️⃣ 发送支付截图，获取解锁码<br>
+      4️⃣ 输入解锁码，生成图纸
+    </div>
+    
+    <div style="margin:16px 0; font-size:13px;color:#8B6F5C;">收款二维码（微信/支付宝）</div>
+    <div class="pay-qr" id="payQR">
+      📱 请添加微信获取收款码<br>
+      <span style="font-size:12px;color:#C4956A;">Wendy550480802</span>
+    </div>
+    
+    <input type="text" class="unlock-input" id="unlockInput" placeholder="请输入解锁码（如：WARM-5A8B-3F2C）" maxlength="20">
+    <button class="btn-unlock" onclick="verifyUnlockCode()">🔓 解锁并生成图纸</button>
+    
+    <div style="font-size:11px;color:#999;margin-top:16px;">
+      解锁码格式：WARM-XXXX-XXXX<br>
+      请联系暖屿获取当日解锁码
+    </div>
+      请联系暖屿获取当日解锁码
+    </div>
   </div>
 </div>
 
@@ -595,8 +648,165 @@ function filterColors() {
   });
 }
 
-// ============ 图片转图纸 ============
+// ============ 支付系统（手动验证版 · 阶梯定价） ============
+const PAYMENT_SALT = 'WARM_ISLET_2026';
+const MAX_CODES_PER_DAY = 100;
+const PRICE_TIERS = [
+  { maxBeads: 900,   price: 1 },
+  { maxBeads: 2500,  price: 2 },
+  { maxBeads: 6400,  price: 5 },
+  { maxBeads: Infinity, price: 8 }
+];
+
+// 根据拼豆数计算价格
+function calcPrice(beadCount) {
+  for (const t of PRICE_TIERS) {
+    if (beadCount <= t.maxBeads) return t.price;
+  }
+  return 8;
+}
+
+// 共享算法：根据日期+序号+价格档位生成唯一解锁码
+function getCodeForIndex(dateStr, index, priceTier) {
+  let hash = 0;
+  const str = PAYMENT_SALT + dateStr + index + 'P' + priceTier;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const code = Math.abs(hash).toString(36).toUpperCase().padStart(8, '0');
+  return 'WARM-' + priceTier + '-' + code.substring(0,4) + '-' + code.substring(4,8);
+}
+
+// 验证解锁码：检查价格前缀 + 算法匹配
+function isValidCode(input) {
+  const parts = input.split('-');
+  if (parts.length !== 4 || parts[0] !== 'WARM') return false;
+  const priceTier = parts[1];
+  const body = parts[2] + parts[3];
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = (today.getMonth()+1).toString().padStart(2,'0');
+  const d = today.getDate().toString().padStart(2,'0');
+  const dateStr = y + m + d;
+  for (let i = 1; i <= MAX_CODES_PER_DAY; i++) {
+    const candidate = getCodeForIndex(dateStr, i, priceTier);
+    if (candidate === input) return true;
+  }
+  return false;
+}
+
+// 从解锁码提取价格档位
+function getPriceTierFromCode(input) {
+  const parts = input.split('-');
+  return parts.length >= 2 ? parts[1] : null;
+}
+
+function checkUnlock() {
+  const today = new Date().toDateString();
+  const lastDate = localStorage.getItem('warmIslet_last_date');
+  if (lastDate !== today) {
+    localStorage.removeItem('warmIslet_used_codes');
+    localStorage.setItem('warmIslet_last_date', today);
+  }
+  const unlocked = localStorage.getItem('warmIslet_unlock');
+  if (!unlocked) return false;
+  try {
+    const data = JSON.parse(unlocked);
+    if (data.date === today && data.count < 1) return true;
+  } catch(e) {
+    if (unlocked === 'WARM_ISLET_VIP') return true;
+  }
+  return false;
+}
+
+function showPayModal() {
+  const price = localStorage.getItem('warmIslet_price') || '1';
+  const priceEl = document.getElementById('payPriceTag');
+  if (priceEl) priceEl.textContent = '¥' + price;
+  const tierMap = { '1':'≤900颗', '2':'901~2500颗', '5':'2501~6400颗', '8':'＞6400颗' };
+  const descEl = document.getElementById('payPriceDesc');
+  if (descEl) descEl.textContent = '本次图纸：' + (tierMap[price]||'') + ' → ¥' + price;
+  const stepPriceEl = document.getElementById('payStepPrice');
+  if (stepPriceEl) stepPriceEl.textContent = price + '元';
+  document.getElementById('payModal').classList.add('active');
+}
+
+function closePayModal() {
+  document.getElementById('payModal').classList.remove('active');
+}
+
+function verifyUnlockCode() {
+  const input = document.getElementById('unlockInput').value.trim().toUpperCase();
+  if (!input) { showToast('请输入解锁码！'); return; }
+  
+  const priceTier = getPriceTierFromCode(input);
+  const expectedTier = localStorage.getItem('warmIslet_price_tier') || '1';
+  
+  if (!isValidCode(input) && input !== 'WARM_ISLET_VIP') {
+    showToast('❌ 解锁码错误，请确认后重试！');
+    document.getElementById('unlockInput').value = '';
+    return;
+  }
+  
+  if (input !== 'WARM_ISLET_VIP' && priceTier !== expectedTier) {
+    showToast('❌ 解锁码与当前图纸价格不匹配！');
+    document.getElementById('unlockInput').value = '';
+    return;
+  }
+  
+  const usedCodes = JSON.parse(localStorage.getItem('warmIslet_used_codes') || '[]');
+  if (usedCodes.includes(input)) {
+    showToast('⚠️ 此解锁码已使用过，请获取新码！');
+    document.getElementById('unlockInput').value = '';
+    return;
+  }
+  usedCodes.push(input);
+  localStorage.setItem('warmIslet_used_codes', JSON.stringify(usedCodes));
+  
+  const today = new Date().toDateString();
+  localStorage.setItem('warmIslet_unlock', JSON.stringify({ date: today, count: 0, code: input }));
+  closePayModal();
+  showToast('🎉 解锁成功！正在生成图纸...');
+  setTimeout(() => { generatePatternCore(); }, 1000);
+}
+// ============ 图片转图纸（核心逻辑） ============
 function generatePattern() {
+  // 先根据当前设置计算价格（弹出弹窗前存入）
+  const gw = parseInt(document.getElementById('gridW')?.value || '29');
+  const gh = parseInt(document.getElementById('gridH')?.value || '29');
+  const total = gw * gh;
+  const tier = calcPrice(total);
+  localStorage.setItem('warmIslet_price', tier);
+  localStorage.setItem('warmIslet_price_tier', tier);
+  console.log('图纸价格计算：' + total + '颗 → ¥' + tier);
+  // 先检查是否已解锁
+  if (!checkUnlock()) {
+    showPayModal();
+    return;
+  }
+  
+  // 检查今日生成次数（一码一图）
+  const unlockData = localStorage.getItem('warmIslet_unlock');
+  if (unlockData) {
+    try {
+      const data = JSON.parse(unlockData);
+      if (data.date === new Date().toDateString() && data.count >= 1) {
+        // 已达到今日生成上限，清除解锁状态，要求重新输入
+        localStorage.removeItem('warmIslet_unlock');
+        showToast('⚠️ 今日生成次数已用完，请重新获取解锁码！');
+        showPayModal();
+        return;
+      }
+    } catch(e) {
+      // 旧格式或永久解锁码，允许继续
+    }
+  }
+  
+  generatePatternCore();
+}
+
+function generatePatternCore() {
   const fileInput = document.getElementById('fileInput');
   if (!fileInput.files || !fileInput.files[0]) {
     showToast('请先上传图片！');
@@ -613,6 +823,7 @@ function generatePattern() {
       const brightness = parseInt(document.getElementById('brightness').value) || 0;
       const contrast = parseInt(document.getElementById('contrast').value) || 0;
       const useDither = document.getElementById('ditheringToggle').checked;
+      const removeBg = document.getElementById('removeBg')?.checked;
 
       const tmpCanvas = document.createElement('canvas');
       tmpCanvas.width = gridW;
@@ -620,6 +831,27 @@ function generatePattern() {
       const ctx = tmpCanvas.getContext('2d');
       ctx.drawImage(img, 0, 0, gridW, gridH);
       const imgData = ctx.getImageData(0, 0, gridW, gridH);
+
+      // 去除背景色：识别背景色
+      let bgMardCode = null;
+      if (removeBg) {
+        const colorCount = {};
+        for (let y = 0; y < gridH; y += 2) {
+          for (let x = 0; x < gridW; x += 2) {
+            const i = (y * gridW + x) * 4;
+            const r = imgData.data[i], g = imgData.data[i+1], b = imgData.data[i+2];
+            const key = (r << 16) | (g << 8) | b;
+            colorCount[key] = (colorCount[key] || 0) + 1;
+          }
+        }
+        let maxCount = 0, bgKey = 0;
+        for (const [key, cnt] of Object.entries(colorCount)) {
+          if (cnt > maxCount) { maxCount = cnt; bgKey = parseInt(key); }
+        }
+        const br = (bgKey >> 16) & 0xFF, bg = (bgKey >> 8) & 0xFF, bb = bgKey & 0xFF;
+        bgMardCode = matchColor(br, bg, bb);
+        console.log('背景色识别：', br, bg, bb, '→ Mard', bgMardCode);
+      }
 
       for (let i = 0; i < imgData.data.length; i += 4) {
         for (let c = 0; c < 3; c++) {
@@ -669,7 +901,12 @@ function generatePattern() {
           const i = (y * gridW + x) * 4;
           const r = imgData.data[i], g = imgData.data[i + 1], b = imgData.data[i + 2], a = imgData.data[i + 3];
           if (a < 128) { pattern[y][x] = null; continue; }
-          pattern[y][x] = matchColor(r, g, b);
+          // 去除背景色：如果量化结果等于背景色，则设为 null
+          if (bgMardCode && matchColor(r, g, b) === bgMardCode) {
+            pattern[y][x] = null;
+          } else {
+            pattern[y][x] = matchColor(r, g, b);
+          }
         }
       }
 
@@ -679,6 +916,18 @@ function generatePattern() {
       document.getElementById('emptyState').style.display = 'none';
       document.getElementById('canvasContainer').style.display = 'block';
       showToast('图纸生成完成！');
+      
+      // 生成完成后，增加计数（一码一图）
+      const unlockData = localStorage.getItem('warmIslet_unlock');
+      if (unlockData) {
+        try {
+          const data = JSON.parse(unlockData);
+          data.count = (data.count || 0) + 1;
+          localStorage.setItem('warmIslet_unlock', JSON.stringify(data));
+        } catch(e) {
+          // 永久解锁码，不限制次数
+        }
+      }
     };
     img.src = e.target.result;
   };

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>算法诊断工具</title>
+<style>
+  body { font-family: monospace; padding: 20px; background: #fdf8f3; }
+  .match { color: green; font-weight: bold; }
+  .mismatch { color: red; font-weight: bold; }
+  pre { background: #fff; padding: 10px; border: 1px solid #ccc; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>算法同步诊断</h1>
+<div id="result"></div>
+
+<script>
+// ============ 与 index.html 完全相同的算法 ============
+const PAYMENT_SALT = 'WARM_ISLET_2026';
+const MAX_CODES_PER_DAY = 100;
+
+function getCodeForIndex(dateStr, index) {
+  let hash = 0;
+  const str = PAYMENT_SALT + dateStr + index;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const code = Math.abs(hash).toString(36).toUpperCase().padStart(8, '0');
+  return 'WARM-' + code.substring(0, 4) + '-' + code.substring(4, 8);
+}
+
+// ============ 与 get-code.html 完全相同的算法 ============
+function getTodayDateStr() {
+  const t = new Date();
+  const y = t.getFullYear();
+  const m = (t.getMonth()+1).toString().padStart(2,'0');
+  const d = t.getDate().toString().padStart(2,'0');
+  return y + m + d;
+}
+
+function getCodeForIndex2(dateStr, index) {
+  let hash = 0;
+  const str = PAYMENT_SALT + dateStr + index;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const code = Math.abs(hash).toString(36).toUpperCase().padStart(8, '0');
+  return 'WARM-' + code.substring(0, 4) + '-' + code.substring(4, 8);
+}
+
+// ============ 诊断 ============
+const todayStr = getTodayDateStr();
+let html = '<h2>今日日期字符串：' + todayStr + '</h2>';
+html += '<p>两个文件的算法应该完全一致，前5个码对比：</p>';
+html += '<table border="1" cellpadding="8" cellspacing="0">';
+html += '<tr><th>序号</th><th>index.html 算法（isValidCode遍历）</th><th>get-code.html 算法（generateCode调用）</th><th>是否匹配</th></tr>';
+
+let allMatch = true;
+for (let i = 1; i <= 5; i++) {
+  const code1 = getCodeForIndex(todayStr, i);
+  const code2 = getCodeForIndex2(todayStr, i);
+  const match = code1 === code2;
+  if (!match) allMatch = false;
+  html += '<tr>';
+  html += '<td>' + i + '</td>';
+  html += '<td><code>' + code1 + '</code></td>';
+  html += '<td><code>' + code2 + '</code></td>';
+  html += '<td class="' + (match ? 'match' : 'mismatch') + '">' + (match ? '✅ 匹配' : '❌ 不匹配') + '</td>';
+  html += '</tr>';
+}
+html += '</table>';
+
+if (allMatch) {
+  html += '<p class="match">✅ 算法完全同步！问题可能在别处。</p>';
+  html += '<p>请打开 index.html，按 F12，在控制台输入以下代码并回车：</p>';
+  html += '<pre>isValidCode(\"' + getCodeForIndex(todayStr, 1) + '\")</pre>';
+  html += '<p>如果返回 true，说明算法没问题，问题在别处。</p>';
+} else {
+  html += '<p class="mismatch">❌ 算法不同步！需要修复。</p>';
+}
+
+html += '<h3>今日前3个有效码（供测试用）：</h3><ol>';
+for (let i = 1; i <= 3; i++) {
+  html += '<li><code>' + getCodeForIndex(todayStr, i) + '</code></li>';
+}
+html += '</ol>';
+
+document.getElementById('result').innerHTML = html;
+</script>
+</body>
+</html>

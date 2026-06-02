@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>暖屿 · 解锁码生成器</title>
+<style>
+  * { margin:0; padding:0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", -apple-system, sans-serif;
+    background: linear-gradient(135deg, #C4956A 0%, #E8A598 100%);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .container { max-width: 640px; margin:0 auto; }
+  .card {
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    margin-bottom: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  .brand {
+    font-size: 13px;
+    color: #C4956A;
+    letter-spacing: 2px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  h1 { font-size: 20px; color: #5D4E37; margin-bottom: 24px; }
+  .today-date { font-size: 13px; color: #999; margin-bottom: 20px; }
+  
+  .price-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .price-option {
+    flex: 1;
+    min-width: 80px;
+    padding: 12px 8px;
+    border: 2px solid #f0e8df;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.2s;
+    background: #fdf8f3;
+  }
+  .price-option:hover { border-color: #C4956A; }
+  .price-option.active {
+    border-color: #C4956A;
+    background: #C4956A;
+    color: white;
+  }
+  .price-option .price-label { font-size: 11px; color: inherit; opacity: 0.8; }
+  .price-option .price-value { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  
+  .btn-generate {
+    background: linear-gradient(135deg, #C4956A 0%, #E8A598 100%);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    padding: 16px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .btn-generate:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(196,149,106,0.4); }
+  .btn-generate:active { transform: translateY(0); }
+  
+  .code-list-title {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .code-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fdf8f3;
+    border: 1px solid #f0e8df;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    transition: 0.2s;
+  }
+  .code-item:hover { border-color: #C4956A; }
+  .code-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: #5D4E37;
+    letter-spacing: 2px;
+    font-family: "Courier New", monospace;
+    user-select: all;
+  }
+  .code-status { font-size: 11px; color: #999; margin-top: 4px; }
+  .code-tier { font-size: 11px; color: #C4956A; font-weight: 600; margin-top: 2px; }
+  .btn-copy {
+    background: #C4956A;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .btn-copy:hover { background: #b5845a; }
+  .empty-state {
+    text-align: center;
+    padding: 32px;
+    color: #ccc;
+    font-size: 14px;
+  }
+  .hint {
+    font-size: 12px;
+    color: #bbb;
+    line-height: 1.8;
+    margin-top: 20px;
+    padding: 16px;
+    background: #fdf8f3;
+    border-radius: 12px;
+  }
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    margin-top: 20px;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="card">
+    <div class="brand">HANDS & HEART · 暖屿拼豆</div>
+    <h1>🔑 解锁码生成器</h1>
+    <div class="today-date" id="todayDate"></div>
+    
+    <div class="price-selector" id="priceSelector">
+      <div class="price-option active" data-tier="1" onclick="selectTier(this)">
+        <div class="price-label">≤900颗</div>
+        <div class="price-value">¥1</div>
+      </div>
+      <div class="price-option" data-tier="2" onclick="selectTier(this)">
+        <div class="price-label">901~2500</div>
+        <div class="price-value">¥2</div>
+      </div>
+      <div class="price-option" data-tier="5" onclick="selectTier(this)">
+        <div class="price-label">2501~6400</div>
+        <div class="price-value">¥5</div>
+      </div>
+      <div class="price-option" data-tier="8" onclick="selectTier(this)">
+        <div class="price-label">＞6400颗</div>
+        <div class="price-value">¥8</div>
+      </div>
+    </div>
+    
+    <button class="btn-generate" onclick="generateCode()">➕ 生成新解锁码（每收1份款点1次）</button>
+    
+    <div class="code-list-title" id="listTitle">今日已生成的码（点击复制）</div>
+    <div id="codeList"></div>
+  </div>
+  
+  <div class="hint">
+    💡 <strong>使用说明：</strong><br>
+    1. 用户付款后，选择对应价格档位<br>
+    2. 点"生成新解锁码"<br>
+    3. 把生成的码复制发给用户<br>
+    4. 用户输入此码后，可生成 1 张图纸<br>
+    5. 此码用完后自动失效，无法再用<br>
+    6. 每天凌晨自动清空列表
+  </div>
+</div>
+
+<div class="footer">暖屿拼豆 · Hands & Heart · 2026</div>
+
+<script>
+// ============ 与 index.html 完全相同的算法 ============
+const PAYMENT_SALT = 'WARM_ISLET_2026';
+const MAX_CODES_PER_DAY = 100;
+
+// 根据日期 + 序号 + 价格档位生成唯一解锁码
+function getCodeForIndex(dateStr, index, priceTier) {
+  let hash = 0;
+  const str = PAYMENT_SALT + dateStr + index + 'P' + priceTier;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const code = Math.abs(hash).toString(36).toUpperCase().padStart(8, '0');
+  return 'WARM-' + priceTier + '-' + code.substring(0,4) + '-' + code.substring(4,8);
+}
+
+function getTodayDateStr() {
+  const t = new Date();
+  const y = t.getFullYear();
+  const m = (t.getMonth()+1).toString().padStart(2,'0');
+  const d = t.getDate().toString().padStart(2,'0');
+  return y + m + d;
+}
+
+function getTodayStr() {
+  const t = new Date();
+  const y = t.getFullYear();
+  const m = (t.getMonth()+1).toString().padStart(2,'0');
+  const d = t.getDate().toString().padStart(2,'0');
+  return y + '年' + m + '月' + d + '日';
+}
+
+// ============ 价格档位选择 ============
+let currentTier = '1';
+
+function selectTier(el) {
+  document.querySelectorAll('.price-option').forEach(opt => opt.classList.remove('active'));
+  el.classList.add('active');
+  currentTier = el.getAttribute('data-tier');
+}
+
+// ============ 本地存储逻辑 ============
+function getStoredCodes() {
+  const today = new Date().toDateString();
+  const raw = localStorage.getItem('warmIslet_generated_codes');
+  if (!raw) return { date: today, nextIndex: 1, codes: [] };
+  try {
+    const data = JSON.parse(raw);
+    if (data.date !== today) {
+      return { date: today, nextIndex: 1, codes: [] };
+    }
+    return data;
+  } catch(e) {
+    return { date: today, nextIndex: 1, codes: [] };
+  }
+}
+
+function saveCodes(data) {
+  localStorage.setItem('warmIslet_generated_codes', JSON.stringify(data));
+}
+
+// ============ 生成新码 ============
+function generateCode() {
+  const data = getStoredCodes();
+  if (data.nextIndex > MAX_CODES_PER_DAY) {
+    showToast('⚠️ 今日码已用完（最多' + MAX_CODES_PER_DAY + '个）');
+    return;
+  }
+  const dateStr = getTodayDateStr();
+  const code = getCodeForIndex(dateStr, data.nextIndex, currentTier);
+  const tierMap = { '1':'¥1', '2':'¥2', '5':'¥5', '8':'¥8' };
+  data.codes.push({
+    code: code,
+    index: data.nextIndex,
+    tier: currentTier,
+    tierLabel: tierMap[currentTier],
+    time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'})
+  });
+  data.nextIndex += 1;
+  saveCodes(data);
+  renderList();
+  copyToClipboard(code);
+}
+
+// ============ 渲染列表 ============
+function renderList() {
+  const data = getStoredCodes();
+  const listEl = document.getElementById('codeList');
+  const titleEl = document.getElementById('listTitle');
+  titleEl.textContent = '今日已生成的码（共 ' + data.codes.length + ' 个，点击复制）';
+  if (data.codes.length === 0) {
+    listEl.innerHTML = '<div class="empty-state">暂无生成的码<br>点上方按钮生成第一个码</div>';
+    return;
+  }
+  let html = '';
+  for (let i = data.codes.length - 1; i >= 0; i--) {
+    const item = data.codes[i];
+    html += '<div class="code-item">' +
+      '<div>' +
+        '<div class="code-text">' + item.code + '</div>' +
+        '<div class="code-status">生成时间：' + item.time + '</div>' +
+        '<div class="code-tier">档位：' + item.tierLabel + '</div>' +
+      '</div>' +
+      '<button class="btn-copy" onclick="copyCode(\'' + item.code + '\')">复制</button>' +
+    '</div>';
+  }
+  listEl.innerHTML = html;
+}
+
+function copyCode(code) {
+  copyToClipboard(code);
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('✅ 已复制：' + text);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ 已复制：' + text);
+  });
+}
+
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);' +
+    'background:#5D4E37;color:white;padding:12px 24px;border-radius:12px;' +
+    'font-size:14px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);';
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+// ============ 初始化 ============
+document.getElementById('todayDate').textContent = '日期：' + getTodayStr();
+renderList();
+</script>
+
+</body>
+</html>
